@@ -18,6 +18,7 @@ public class Plugin implements VoicechatPlugin {
 
     public static VoicechatApi voicechatApi;
     private static ConcurrentHashMap<UUID, Long> cooldowns;
+    private static ConcurrentHashMap<UUID, Long> firstLoudSounds;
 
     @Nullable
     public static VoicechatServerApi voicechatServerApi;
@@ -87,7 +88,21 @@ public class Plugin implements VoicechatPlugin {
         decoder.resetState();
         short[] decoded = decoder.decode(event.getPacket().getOpusEncodedData());
 
-        if (AudioUtils.calculateAudioLevel(decoded) < VoicechatInteraction.SERVER_CONFIG.minActivationThreshold.get().doubleValue()) {
+        if (AudioUtils.calculateAudioLevel(decoded) >= VoicechatInteraction.SERVER_CONFIG.minActivationThreshold.get().doubleValue()) {
+            Long firstLoudSound = firstLoudSounds.get(player.getUUID());
+            long currentTime = player.level.getGameTime();
+            if (firstLoudSound == null) {
+                firstLoudSound = currentTime;
+                firstLoudSounds.put(player.getUUID(), currentTime);
+            }
+            Long diff = currentTime - firstLoudSound;
+            if (diff < VoicechatInteraction.SERVER_CONFIG.minActivationTime.get().doubleValue() ||
+                diff > VoicechatInteraction.SERVER_CONFIG.maxActivationTime.get().doubleValue()) {
+                firstLoudSounds.put(player.getUUID(), currentTime);
+                return;
+            }
+        }
+        else {
             return;
         }
 
